@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+joblib
+openai-whisper
+python-multipart
+librosa
+numpy
+scikit-learn
+pandas
+spacy
+sentence-transformers
+matplotlib
+seaborn
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib

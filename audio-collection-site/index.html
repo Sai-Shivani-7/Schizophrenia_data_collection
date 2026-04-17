@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Voice Collection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <main id="app">
+        <div class="glass-card">
+            <!-- Step 0: Registration -->
+            <section id="step-0" class="step active">
+                <h1>Welcome</h1>
+                <p class="subtitle">Please provide your participant ID to begin the session.</p>
+                <div class="input-group">
+                    <label for="participant-id">Participant ID</label>
+                    <input type="text" id="participant-id" placeholder="e.g. P101" autocomplete="off">
+                </div>
+                <button id="start-btn" class="btn btn-primary">
+                    Start Session
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                </button>
+            </section>
+
+            <!-- Step 1-3 Sections (Collapsed for brevity in this tool call, keep them as is) -->
+            <!-- Note: I will only replace the parts that need changing or include the whole thing. 
+                 Since the user asked to continue, I'll update the whole file to include the report overlay. -->
+
+            <!-- Step 1 -->
+            <section id="step-1" class="step">
+                <h1>Step 1</h1>
+                <p class="subtitle">Narrative Description</p>
+                <div class="prompt-box">
+                    <strong>Topic:</strong> Tell us about your typical day. Describe your routine from the moment you wake up until you go to sleep.
+                </div>
+                <div class="recorder-container">
+                    <div class="timer" id="timer-1">00:00</div>
+                    <button id="record-btn-1" class="record-btn"><div class="inner-circle"></div></button>
+                    <p id="status-1" style="margin-top: 1rem; color: var(--text-muted);">Click the icon to start recording</p>
+                </div>
+                <div id="preview-1" class="audio-preview" style="display: none;"><audio id="audio-1" controls></audio></div>
+                <button id="next-1" class="btn btn-primary" disabled>Save & Next</button>
+                <div class="progress-container">
+                    <div class="progress-step active"></div>
+                    <div class="progress-step"></div>
+                    <div class="progress-step"></div>
+                </div>
+            </section>
+
+            <!-- Step 2 -->
+            <section id="step-2" class="step">
+                <h1>Step 2</h1>
+                <p class="subtitle">Memorable Experience</p>
+                <div class="prompt-box">
+                    <strong>Topic:</strong> Describe a significant challenge you have faced in your life and how you managed to overcome it.
+                </div>
+                <div class="recorder-container">
+                    <div class="timer" id="timer-2">00:00</div>
+                    <button id="record-btn-2" class="record-btn"><div class="inner-circle"></div></button>
+                    <p id="status-2" style="margin-top: 1rem; color: var(--text-muted);">Click the icon to start recording</p>
+                </div>
+                <div id="preview-2" class="audio-preview" style="display: none;"><audio id="audio-2" controls></audio></div>
+                <button id="next-2" class="btn btn-primary" disabled>Save & Next</button>
+                <div class="progress-container">
+                    <div class="progress-step completed"></div>
+                    <div class="progress-step active"></div>
+                    <div class="progress-step"></div>
+                </div>
+            </section>
+
+            <!-- Step 3 -->
+            <section id="step-3" class="step">
+                <h1>Step 3</h1>
+                <p class="subtitle">Abstract Perspective</p>
+                <div class="prompt-box">
+                    <strong>Topic:</strong> Share your thoughts on a topic you are passionate about, such as a hobby, a social issue, or your vision for the future.
+                </div>
+                <div class="recorder-container">
+                    <div class="timer" id="timer-3">00:00</div>
+                    <button id="record-btn-3" class="record-btn"><div class="inner-circle"></div></button>
+                    <p id="status-3" style="margin-top: 1rem; color: var(--text-muted);">Click the icon to start recording</p>
+                </div>
+                <div id="preview-3" class="audio-preview" style="display: none;"><audio id="audio-3" controls></audio></div>
+                <button id="finish-btn" class="btn btn-primary" disabled>Finish Session</button>
+                <div class="progress-container">
+                    <div class="progress-step completed"></div>
+                    <div class="progress-step completed"></div>
+                    <div class="progress-step active"></div>
+                </div>
+            </section>
+
+            <!-- Step 4: Finished -->
+            <section id="step-4" class="step">
+                <div class="finish-card">
+                    <div class="check-container">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                    <h1>Thank You!</h1>
+                    <p class="subtitle">Your data has been collected successfully.</p>
+                    <p style="color: var(--text-muted); margin-bottom: 2rem;">Total audio collected: <span id="total-time">0:00</span></p>
+                    <button onclick="location.reload()" class="btn btn-primary">
+                        Return to Start
+                    </button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Full Screen Report Overlay -->
+    <div id="report-overlay" class="report-overlay">
+        <button class="close-report-btn" id="close-report">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div class="report-wrapper">
+            <div class="report-header">
+                <div class="header-left">
+                    <h2>Patient Analysis Report</h2>
+                    <div class="patient-meta">
+                        <span><strong>ID:</strong> <span id="rep-id">-</span></span>
+                        <span><strong>File:</strong> <span id="rep-file">-</span></span>
+                        <span><strong>Date:</strong> <span id="rep-date">-</span></span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div id="rep-status-badge" class="prediction-badge">-</div>
+                    <div style="font-size: 0.9rem; color: var(--text-muted);">Confidence Score</div>
+                    <div class="probability-bar-container">
+                        <div id="rep-prob-fill" class="probability-fill" style="width: 0%"></div>
+                    </div>
+                    <div id="rep-prob-text" style="font-weight: 600; font-size: 0.9rem; margin-top: 2px;">0%</div>
+                </div>
+            </div>
+
+            <div class="report-body">
+                <div class="report-section">
+                    <h3 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        Linguistic Biomarkers
+                    </h3>
+                    <div id="biomarker-grid" class="biomarker-grid">
+                        <!-- Biomarker cards will be injected here -->
+                    </div>
+                </div>
+
+                <div class="report-section">
+                    <h3 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        Clinical Interpretation
+                    </h3>
+                    <div id="interpretation-list" class="interpretation-list">
+                        <!-- Findings will be injected here -->
+                    </div>
+                </div>
+
+                <div class="overall-impression">
+                    <h3 class="section-title" style="margin-bottom: 0.5rem;">Overall Impression</h3>
+                    <p id="rep-impression">Analyzing speech patterns to determine clinical indicators...</p>
+                </div>
+            </div>
+
+            <div class="report-footer">
+                <div class="disclaimer">
+                    <strong>DISCLAIMER:</strong> Research prototype only. Not validated for clinical use. 
+                    Must NOT be used for diagnosis, treatment, or clinical decisions.
+                </div>
+                <button class="btn btn-primary" style="width: auto; padding: 0.5rem 1.5rem;" onclick="window.print()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    Print Report
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
