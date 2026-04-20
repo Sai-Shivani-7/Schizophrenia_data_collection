@@ -9,11 +9,8 @@ from pathlib import Path
 from collections import Counter
 from typing import Dict, List, Tuple, Any, Optional
 
-import spacy
 import joblib
-import whisper
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
+# Heavy imports moved to lazy loaders below
 
 warnings.filterwarnings("ignore")
 
@@ -21,15 +18,26 @@ warnings.filterwarnings("ignore")
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
 
-# Global instances
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    # If not found, we'll try to download it via command if possible, 
-    # but for now we assume it's installed or we'll provide instructions.
-    nlp = None
+# Global instances (lazy-loaded)
+_nlp = None
+_embedder = None
 
-embedder = SentenceTransformer('all-MiniLM-L6-v2')
+def get_nlp():
+    global _nlp
+    if _nlp is None:
+        try:
+            import spacy
+            _nlp = spacy.load("en_core_web_sm")
+        except (OSError, ImportError):
+            _nlp = None
+    return _nlp
+
+def get_embedder():
+    global _embedder
+    if _embedder is None:
+        from sentence_transformers import SentenceTransformer
+        _embedder = SentenceTransformer('all-MiniLM-L6-v2')
+    return _embedder
 
 # ── Feature helps & constants ───────────────────────────────────────────────
 
@@ -149,6 +157,8 @@ def _coherence(clean: str) -> Dict[str, float]:
 def semantic_coherence(text):
     sentences = [s.strip() for s in text.split('.') if s.strip()]
     if len(sentences) < 2: return 1.0
+    from sklearn.metrics.pairwise import cosine_similarity
+    embedder = get_embedder()
     embeddings = embedder.encode(sentences)
     sims = []
     for i in range(1, len(embeddings)):
@@ -200,6 +210,7 @@ def _syntactic(doc) -> Dict[str, float]:
 def extract_features(raw_text: str) -> Dict[str, float]:
     clean  = clean_text(raw_text)
     tokens = clean.split()
+    nlp = get_nlp()
     doc    = nlp(clean[:50_000]) if nlp else None
     return {
         "type_token_ratio"    : _ttr(tokens),
@@ -361,6 +372,7 @@ _stt_model = None
 def get_stt_model():
     global _stt_model
     if _stt_model is None:
+        import whisper
         _stt_model = whisper.load_model("base")
     return _stt_model
 

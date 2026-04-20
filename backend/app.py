@@ -10,7 +10,8 @@ from typing import Optional
 import joblib
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from gdrive_utils import upload_zip_to_drive
 from utils import audio_to_text, predict_text
@@ -25,14 +26,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "schizo_speech_model.pkl"
 RESULTS_DIR = BASE_DIR / "results"
+SITE_DIR = BASE_DIR.parent / "audio-collection-site"
 QUESTIONS = {1, 2, 3}
 AUTO_DELETE_AFTER_UPLOAD = os.getenv("AUTO_DELETE_AFTER_UPLOAD", "false").lower() == "true"
 
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Mount the frontend static files so the browser can open the site
+# via http://localhost:8000/site/index.html (no file:// security issues)
+if SITE_DIR.is_dir():
+    app.mount("/site", StaticFiles(directory=str(SITE_DIR), html=True), name="site")
 
 model_state = {
     "model": None,
@@ -236,7 +242,10 @@ def load_model() -> None:
 
 
 @app.get("/")
-def home() -> dict:
+def home():
+    """Redirect root to the frontend site if available, else return API status."""
+    if SITE_DIR.is_dir():
+        return RedirectResponse(url="/site/index.html")
     return {
         "status": "API is running",
         "model_loaded": model_state["loaded"],
@@ -252,6 +261,7 @@ async def save_audio(
     audio: Optional[UploadFile] = File(None),
     file: Optional[UploadFile] = File(None),
 ) -> dict:
+    print(f"\n[DEBUG] API HIT: /save-audio (Question {question_number})")
     question_number = validate_question_number(question_number)
     safe_session_id = normalize_session_id(session_id)
     upload = audio or file
@@ -293,6 +303,7 @@ async def generate_report(
     question_number: int = Form(...),
     session_id: str = Form(...),
 ) -> dict:
+    print(f"\n[DEBUG] API HIT: /generate-report (Session {session_id})")
     ensure_model_loaded()
     question_number = validate_question_number(question_number)
     safe_session_id = normalize_session_id(session_id)
@@ -321,9 +332,18 @@ async def generate_report(
 
     save_metadata(root, safe_session_id, combined_used=combined_path.name)
     zip_path = zip_session_folder(root, safe_session_id)
-
+    
+    # --- Google Drive Upload Logic ---
+    print(f"DEBUG: Attempting to upload ZIP for session {safe_session_id} to Drive...")
     upload_result = upload_zip_to_drive(zip_path, folder_name=f"session_{safe_session_id}")
-    drive_link = upload_result.get("download_link") if upload_result else None
+    
+    if upload_result:
+        drive_link = upload_result.get("download_link")
+        print(f"SUCCESS: Uploaded to Drive: {upload_result.get('file_id')}")
+    else:
+        drive_link = None
+        print("ERROR: Drive upload failed (check terminal for API errors).")
+
     metadata = save_metadata(root, safe_session_id, combined_used=combined_path.name, drive_link=drive_link)
 
     if AUTO_DELETE_AFTER_UPLOAD and drive_link:
@@ -385,6 +405,7 @@ async def analyze(
     file: UploadFile = File(...),
     participant_id: str = Form("anonymous_participant"),
 ) -> dict:
+    print("\n[DEBUG] API HIT: /analyze")
     saved = await save_audio(question_number=1, session_id=participant_id, file=file)
     form_report = await generate_report(question_number=1, session_id=saved["session_id"])
     return form_report
