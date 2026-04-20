@@ -1,0 +1,61 @@
+========================================================================
+         PATIENT SPEECH ANALYSIS REPORT
+         (Research Prototype — NOT for Clinical Use)
+========================================================================
+  File              : recording.wav
+  Classification    : CONTROL
+  P(Schizophrenia)  : 0.0060
+  Decision threshold: 0.4500  (uncertain if |P - t| < 0.0800)
+------------------------------------------------------------------------
+
+  BIOMARKER SUMMARY
+  --------------------------------------------------------------------
+  Feature                         Value         Ref     Flag
+  --------------------------------------------------------------------
+  type_token_ratio               0.6344        >0.4         
+  repetition_rate                0.5269       <0.35   ↑ HIGH
+  disfluency_ratio               0.0000        <0.1         
+  negative_word_ratio            0.0000       <0.06         
+  word_entropy                   5.5967        >3.0         
+  bigram_diversity               0.8696        >0.5         
+  semantic_coherence             1.0000        >0.6         
+  coherence_len_drift            0.0000        <8.0         
+  coherence_len_std              0.0000       <10.0         
+  first_person_ratio             0.0215       <0.07         
+  sentence_fragmentation         0.0000        <0.2         
+  sent_len_mean                 34.3333        >6.0         
+  dep_depth_mean                 7.6667        >3.0         
+  clause_count_ratio             0.0971       >0.04         
+  pronoun_ratio                  0.0971        <0.2         
+  verb_ratio                     0.1845       >0.12         
+  --------------------------------------------------------------------
+
+  1. LINGUISTIC FINDINGS
+  ──────────────────────────────────────────
+  • Elevated word repetition rate (0.527)
+
+  2. SYNTACTIC FINDINGS
+  ──────────────────────────────────────────
+  • No notable syntactic deviations detected.
+
+  3. CLINICAL INTERPRETATION
+  ──────────────────────────────────────────
+  ⚠ [repetition_rate]
+    Perseverative or repetitive speech may indicate thought
+    
+    perseveration or reduced cognitive flexibility.
+
+  4. OVERALL IMPRESSION
+  ──────────────────────────────────────────
+  Speech classified as control-typical despite 1 flagged
+  
+  biomarker(s). Isolated deviations do not necessarily indicate
+  
+  pathology; P(schizophrenia) = 0.006 falls below the calibrated
+  
+  threshold.
+
+────────────────────────────────────────────────────────────────────────
+  ⚠  DISCLAIMER: Research prototype only. Not validated for clinical use.
+     Must NOT be used for diagnosis, treatment, or clinical decisions.
+========================================================================

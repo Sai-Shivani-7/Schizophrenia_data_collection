@@ -1,0 +1,91 @@
+========================================================================
+         PATIENT SPEECH ANALYSIS REPORT
+         (Research Prototype — NOT for Clinical Use)
+========================================================================
+  File              : recording.wav
+  Classification    : CONTROL
+  P(Schizophrenia)  : 0.0092
+  Decision threshold: 0.4500  (uncertain if |P - t| < 0.0800)
+------------------------------------------------------------------------
+
+  BIOMARKER SUMMARY
+  --------------------------------------------------------------------
+  Feature                         Value         Ref     Flag
+  --------------------------------------------------------------------
+  type_token_ratio               0.6415        >0.4         
+  repetition_rate                0.5849       <0.35   ↑ HIGH
+  disfluency_ratio               0.0189        <0.1         
+  negative_word_ratio            0.0000       <0.06         
+  word_entropy                   5.8658        >3.0         
+  bigram_diversity               0.9619        >0.5         
+  semantic_coherence             0.3383        >0.6    ↓ LOW
+  coherence_len_drift           17.2857        <8.0   ↑ HIGH
+  coherence_len_std             15.8588       <10.0   ↑ HIGH
+  first_person_ratio             0.0472       <0.07         
+  sentence_fragmentation         0.3750        <0.2   ↑ HIGH
+  sent_len_mean                 22.4000        >6.0         
+  dep_depth_mean                 4.6000        >3.0         
+  clause_count_ratio             0.0804       >0.04         
+  pronoun_ratio                  0.1518        <0.2         
+  verb_ratio                     0.1339       >0.12         
+  --------------------------------------------------------------------
+
+  1. LINGUISTIC FINDINGS
+  ──────────────────────────────────────────
+  • Elevated word repetition rate (0.585)
+  • Low semantic coherence (0.34)
+  • High inter-sentence length drift (17.29 words/transition)
+  • High sentence fragmentation (0.375)
+  • High sentence-length variability (σ = 15.86)
+
+  2. SYNTACTIC FINDINGS
+  ──────────────────────────────────────────
+  • No notable syntactic deviations detected.
+
+  3. CLINICAL INTERPRETATION
+  ──────────────────────────────────────────
+  ⚠ [repetition_rate]
+    Perseverative or repetitive speech may indicate thought
+    
+    perseveration or reduced cognitive flexibility.
+
+  ⚠ [semantic_coherence]
+    Low average cosine similarity between consecutive sentences may
+    
+    indicate loose associations, tangentiality, or thought
+    
+    disorganization.
+
+  ⚠ [coherence_len_drift]
+    Abrupt sentence length changes between consecutive utterances may
+    
+    reflect derailed or tangential thought flow (loose associations).
+
+  ⚠ [sentence_fragmentation]
+    Frequent short, incomplete sentences may indicate impoverished
+    
+    syntax, thought blocking, or difficulty maintaining coherent
+    
+    sentence structure.
+
+  ◦ [coherence_len_std]
+    Elevated variance in sentence length suggests inconsistent
+    
+    utterance structure, possibly reflecting disorganised speech
+    
+    planning.
+
+  4. OVERALL IMPRESSION
+  ──────────────────────────────────────────
+  Speech classified as control-typical despite 5 flagged
+  
+  biomarker(s). Isolated deviations do not necessarily indicate
+  
+  pathology; P(schizophrenia) = 0.009 falls below the calibrated
+  
+  threshold.
+
+────────────────────────────────────────────────────────────────────────
+  ⚠  DISCLAIMER: Research prototype only. Not validated for clinical use.
+     Must NOT be used for diagnosis, treatment, or clinical decisions.
+========================================================================

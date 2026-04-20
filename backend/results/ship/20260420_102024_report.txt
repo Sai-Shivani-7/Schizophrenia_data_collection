@@ -1,0 +1,90 @@
+========================================================================
+         PATIENT SPEECH ANALYSIS REPORT
+         (Research Prototype — NOT for Clinical Use)
+========================================================================
+  File              : recording.wav
+  Classification    : SCHIZOPHRENIA
+  P(Schizophrenia)  : 0.8013
+  Decision threshold: 0.4500  (uncertain if |P - t| < 0.0800)
+------------------------------------------------------------------------
+
+  BIOMARKER SUMMARY
+  --------------------------------------------------------------------
+  Feature                         Value         Ref     Flag
+  --------------------------------------------------------------------
+  type_token_ratio               0.6000        >0.4         
+  repetition_rate                0.7500       <0.35   ↑ HIGH
+  disfluency_ratio               0.1000        <0.1         
+  negative_word_ratio            0.0000       <0.06         
+  word_entropy                   3.4842        >3.0         
+  bigram_diversity               0.6842        >0.5         
+  semantic_coherence             0.3739        >0.6    ↓ LOW
+  coherence_len_drift            1.0000        <8.0         
+  coherence_len_std              0.4714       <10.0         
+  first_person_ratio             0.1500       <0.07   ↑ HIGH
+  sentence_fragmentation         0.0000        <0.2         
+  sent_len_mean                  7.6667        >6.0         
+  dep_depth_mean                 2.6667        >3.0    ↓ LOW
+  clause_count_ratio             0.0870       >0.04         
+  pronoun_ratio                  0.2174        <0.2   ↑ HIGH
+  verb_ratio                     0.2174       >0.12         
+  --------------------------------------------------------------------
+
+  1. LINGUISTIC FINDINGS
+  ──────────────────────────────────────────
+  • Elevated word repetition rate (0.750)
+  • Low semantic coherence (0.37)
+  • Elevated first-person pronoun ratio (0.150)
+
+  2. SYNTACTIC FINDINGS
+  ──────────────────────────────────────────
+  • Shallow syntactic dependency trees (depth = 2.67)
+  • Elevated pronoun-to-noun ratio (0.217)
+
+  3. CLINICAL INTERPRETATION
+  ──────────────────────────────────────────
+  ⚠ [repetition_rate]
+    Perseverative or repetitive speech may indicate thought
+    
+    perseveration or reduced cognitive flexibility.
+
+  ⚠ [semantic_coherence]
+    Low average cosine similarity between consecutive sentences may
+    
+    indicate loose associations, tangentiality, or thought
+    
+    disorganization.
+
+  ⚠ [first_person_ratio]
+    High usage of first-person pronouns may indicate self-referential
+    
+    speech or preoccupation with personal experiences, potentially
+    
+    seen in some thought disorders.
+
+  ⚠ [dep_depth_mean]
+    Low parse-tree depth indicates syntactically simple structures,
+    
+    consistent with reduced clause embedding and less complex
+    
+    propositional content.
+
+  ⚠ [pronoun_ratio]
+    Overuse of pronouns may produce ambiguous reference chains — a
+    
+    marker of loose associations or referential confusion.
+
+  4. OVERALL IMPRESSION
+  ──────────────────────────────────────────
+  Multiple high-weight biomarkers converge on a pattern consistent
+  
+  with schizophrenia-spectrum speech: reduced lexical diversity,
+  
+  syntactic simplification, and markers of thought disorganisation
+  
+  are jointly present.
+
+────────────────────────────────────────────────────────────────────────
+  ⚠  DISCLAIMER: Research prototype only. Not validated for clinical use.
+     Must NOT be used for diagnosis, treatment, or clinical decisions.
+========================================================================

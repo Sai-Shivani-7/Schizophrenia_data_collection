@@ -1,89 +1,98 @@
 import os
-import io
-import zipfile
-import tempfile
-from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-# The ID of the folder you provided
-PARENT_FOLDER_ID = "1c-J-Ok5WMR7J1VdCoiMBM4_dzZVx_7p8"
 
-# Path to your service account credentials file
-CREDENTIALS_FILE = "service_account.json"
+BASE_DIR = Path(__file__).resolve().parent
+
+# Override these with environment variables when deploying.
+PARENT_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "1c-J-Ok5WMR7J1VdCoiMBM4_dzZVx_7p8")
+CREDENTIALS_FILE = Path(os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", BASE_DIR / "service_account.json"))
+
 
 def get_gdrive_service():
-    if not os.path.exists(CREDENTIALS_FILE):
-        return None
-    
-    try:
-        creds = service_account.Credentials.from_service_account_file(
-            CREDENTIALS_FILE, 
-            scopes=['https://www.googleapis.com/auth/drive.file']
-        )
-        return build('drive', 'v3', credentials=creds)
-    except Exception as e:
-        print(f"Error initializing GDrive service: {e}")
+    if not CREDENTIALS_FILE.exists():
+        print(f"WARNING: Google service account file not found at {CREDENTIALS_FILE}. Skipping Drive upload.")
         return None
 
-def upload_zip_to_drive(participant_id, files_dict):
+    try:
+        creds = service_account.Credentials.from_service_account_file(
+            str(CREDENTIALS_FILE),
+            scopes=["https://www.googleapis.com/auth/drive"],
+        )
+        return build("drive", "v3", credentials=creds)
+    except Exception as exc:
+        print(f"Error initializing Google Drive service: {exc}")
+        return None
+
+
+def make_file_public(service, file_id: str) -> None:
+    service.permissions().create(
+        fileId=file_id,
+        body={"type": "anyone", "role": "reader"},
+        fields="id",
+    ).execute()
+
+
+def upload_zip_to_drive(zip_path: str | Path, folder_name: Optional[str] = None) -> Optional[dict]:
     """
-    Zips the audio, transcript, and report, then uploads the single ZIP to Drive.
-    Handling duplicate IDs by appending a unique timestamp.
-    files_dict: { 'display_name.wav': 'local/path/to/file.wav', ... }
+    Upload an already-created session ZIP to the configured Google Drive folder.
+
+    Returns:
+        {
+          "file_id": "...",
+          "download_link": "https://drive.google.com/uc?export=download&id=...",
+          "web_view_link": "https://drive.google.com/file/d/.../view?usp=drivesdk"
+        }
     """
     service = get_gdrive_service()
     if not service:
-        print("WARNING: GDrive service account credentials (service_account.json) not found. Skipping cloud upload.")
         return None
 
-    # 1. Create unique ZIP name
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_name = f"{participant_id}_session_{ts}.zip"
-    
-    # 2. Create the ZIP file in a temporary location
-    fd, zip_path = tempfile.mkstemp(suffix=".zip")
-    os.close(fd)
+    zip_path = Path(zip_path)
+    if not zip_path.exists():
+        print(f"Google Drive upload skipped because ZIP does not exist: {zip_path}")
+        return None
+
+    name = zip_path.name
+    if folder_name:
+        name = f"{folder_name}.zip"
 
     try:
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            for arcname, local_path in files_dict.items():
-                if os.path.exists(local_path):
-                    zf.write(local_path, arcname)
-                else:
-                    print(f"Warning: File {local_path} not found for zipping.")
-
-        # 3. Resumable Upload (Safe for large files)
         media = MediaFileUpload(
-            zip_path,
+            str(zip_path),
             mimetype="application/zip",
             resumable=True,
-            chunksize=1024 * 1024 # 1MB chunks
+            chunksize=1024 * 1024,
         )
 
         request = service.files().create(
-            body={'name': zip_name, 'parents': [PARENT_FOLDER_ID]},
+            body={"name": name, "parents": [PARENT_FOLDER_ID]},
             media_body=media,
-            fields='id'
+            fields="id, webViewLink",
         )
 
         response = None
         while response is None:
             status, response = request.next_chunk()
             if status:
-                print(f"Uploading ZIP {zip_name}: {int(status.progress() * 100)}%")
+                print(f"Uploading ZIP {name}: {int(status.progress() * 100)}%")
 
-        print(f"SUCCESS: Uploaded {zip_name} to Google Drive (ID: {response.get('id')})")
-        return response.get('id')
+        file_id = response["id"]
+        try:
+            make_file_public(service, file_id)
+        except Exception as exc:
+            print(f"WARNING: Uploaded ZIP, but could not make it public: {exc}")
 
-    except Exception as e:
-        print(f"GDrive ZIP Upload Error: {e}")
+        return {
+            "file_id": file_id,
+            "download_link": f"https://drive.google.com/uc?export=download&id={file_id}",
+            "web_view_link": response.get("webViewLink"),
+        }
+    except Exception as exc:
+        print(f"Google Drive ZIP upload error: {exc}")
         return None
-    finally:
-        # Cleanup temporary zip
-        if os.path.exists(zip_path):
-            try:
-                os.remove(zip_path)
-            except:
-                pass

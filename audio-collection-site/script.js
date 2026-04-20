@@ -1,12 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const API_BASE = 'http://localhost:8000';
+
     let currentStep = 0;
-    let participantId = "";
+    let sessionId = '';
     let mediaRecorder;
     let audioChunks = [];
     let timerInterval;
     let startTime;
     let totalAudioSeconds = 0;
-    let stepAudios = {};
+    const stepAudios = {};
+    const savedQuestions = new Set();
 
     const steps = document.querySelectorAll('.step');
     const participantInput = document.getElementById('participant-id');
@@ -14,15 +17,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const reportOverlay = document.getElementById('report-overlay');
     const closeReportBtn = document.getElementById('close-report');
 
-    // Navigation function
     const showStep = (stepIndex) => {
-        steps.forEach((s, idx) => {
-            s.classList.toggle('active', idx === stepIndex);
-        });
+        steps.forEach((s, idx) => s.classList.toggle('active', idx === stepIndex));
         currentStep = stepIndex;
     };
 
-    // Timer logic
+    const setStatus = (element, message, tone = 'muted') => {
+        element.style.display = 'block';
+        element.textContent = message;
+        element.style.color = tone === 'error' ? 'var(--danger)' : tone === 'success' ? 'var(--success)' : 'var(--text-muted)';
+    };
+
     const updateTimer = (timerId) => {
         const now = Date.now();
         const diff = Math.floor((now - startTime) / 1000);
@@ -32,22 +37,80 @@ document.addEventListener('DOMContentLoaded', () => {
         return diff;
     };
 
-    // Registration
+    const formatSeconds = (totalSeconds) => {
+        const mins = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        return `${mins}m ${secs}s`;
+    };
+
     startBtn.addEventListener('click', () => {
-        participantId = participantInput.value.trim();
-        if (participantId) {
-            showStep(1);
-        } else {
-            alert('Please enter a Participant ID');
+        sessionId = participantInput.value.trim();
+        if (!sessionId) {
+            sessionId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+            participantInput.value = sessionId;
         }
+        showStep(1);
     });
 
-    // Close Report
     closeReportBtn.addEventListener('click', () => {
         reportOverlay.classList.remove('active');
     });
 
-    // Recording Logic
+    const saveStepAudio = async (stepNum, statusDisplay) => {
+        if (savedQuestions.has(stepNum)) {
+            return { alreadySaved: true };
+        }
+
+        const audioInfo = stepAudios[stepNum];
+        if (!audioInfo?.blob) {
+            throw new Error('Please record audio before saving this question.');
+        }
+
+        const formData = new FormData();
+        formData.append('audio', audioInfo.blob, `q${stepNum}.wav`);
+        formData.append('question_number', String(stepNum));
+        formData.append('session_id', sessionId);
+
+        setStatus(statusDisplay, `Saving Q${stepNum} audio and transcript...`);
+        const response = await fetch(`${API_BASE}/save-audio`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || `Save failed for Q${stepNum}.`);
+        }
+
+        sessionId = data.session_id;
+        savedQuestions.add(stepNum);
+        setStatus(statusDisplay, `Saved Q${stepNum}. Combined transcript: ${data.combined_transcript}`, 'success');
+        return data;
+    };
+
+    const generateStepReport = async (stepNum, statusDisplay) => {
+        const formData = new FormData();
+        formData.append('question_number', String(stepNum));
+        formData.append('session_id', sessionId);
+
+        setStatus(statusDisplay, `Generating report for Q${stepNum} from combined transcript...`);
+        const response = await fetch(`${API_BASE}/generate-report`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || `Report generation failed for Q${stepNum}.`);
+        }
+
+        const linkText = data.download_link
+            ? ` ZIP uploaded: ${data.download_link}`
+            : ' ZIP created locally; Drive upload will work after credentials are added.';
+        setStatus(statusDisplay, `Report ready.${linkText}`, 'success');
+        return data;
+    };
+
     const setupRecorder = async (stepNum) => {
         const recordBtn = document.getElementById(`record-btn-${stepNum}`);
         const statusText = document.getElementById(`status-${stepNum}`);
@@ -56,6 +119,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const previewContainer = document.getElementById(`preview-${stepNum}`);
         const audioElement = document.getElementById(`audio-${stepNum}`);
 
+        const reportBtn = document.createElement('button');
+        reportBtn.className = 'btn';
+        reportBtn.style.marginTop = '1rem';
+        reportBtn.style.backgroundColor = '#f1f5f9';
+        reportBtn.style.color = 'var(--primary)';
+        reportBtn.style.border = '1px solid var(--primary)';
+        reportBtn.textContent = 'Generate Report';
+        reportBtn.disabled = true;
+
+        const statusDisplay = document.createElement('div');
+        statusDisplay.className = 'prompt-box';
+        statusDisplay.style.marginTop = '1rem';
+        statusDisplay.style.fontSize = '0.9rem';
+        statusDisplay.style.display = 'none';
+
+        previewContainer.appendChild(reportBtn);
+        previewContainer.appendChild(statusDisplay);
+
         recordBtn.addEventListener('click', async () => {
             if (!mediaRecorder || mediaRecorder.state === 'inactive') {
                 try {
@@ -63,40 +144,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     mediaRecorder = new MediaRecorder(stream);
                     audioChunks = [];
 
-                    mediaRecorder.ondataavailable = (e) => {
-                        audioChunks.push(e.data);
-                    };
+                    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
 
                     mediaRecorder.onstop = () => {
                         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                         const audioUrl = URL.createObjectURL(audioBlob);
+                        const previousDuration = stepAudios[stepNum]?.duration || 0;
+                        const duration = Math.floor((Date.now() - startTime) / 1000);
+
                         audioElement.src = audioUrl;
                         previewContainer.style.display = 'block';
-                        
-                        // Add download link
+
                         let downloadLink = previewContainer.querySelector('.download-link');
                         if (!downloadLink) {
                             downloadLink = document.createElement('a');
                             downloadLink.className = 'download-link';
-                            downloadLink.textContent = 'Download Recording';
                             downloadLink.style.display = 'block';
                             downloadLink.style.marginTop = '0.5rem';
                             downloadLink.style.color = 'var(--primary)';
                             downloadLink.style.textDecoration = 'none';
                             downloadLink.style.fontSize = '0.9rem';
                             downloadLink.style.fontWeight = '500';
-                            previewContainer.appendChild(downloadLink);
+                            previewContainer.insertBefore(downloadLink, reportBtn);
                         }
+                        downloadLink.textContent = 'Download Recording';
                         downloadLink.href = audioUrl;
-                        downloadLink.download = `${participantId}_step${stepNum}.wav`;
+                        downloadLink.download = `${sessionId || 'session'}_q${stepNum}.wav`;
 
+                        stepAudios[stepNum] = { blob: audioBlob, duration };
+                        savedQuestions.delete(stepNum);
+                        totalAudioSeconds = totalAudioSeconds - previousDuration + duration;
                         nextBtn.disabled = false;
-                        
-                        const duration = Math.floor((Date.now() - startTime) / 1000);
-                        stepAudios[stepNum] = { blob: audioBlob, duration: duration };
-                        totalAudioSeconds += duration;
+                        reportBtn.disabled = false;
 
-                        // Stop all tracks
                         stream.getTracks().forEach(track => track.stop());
                     };
 
@@ -106,7 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusText.textContent = 'Recording... click to stop';
                     statusText.style.color = 'var(--danger)';
                     statusText.style.fontWeight = '600';
-
                     timerInterval = setInterval(() => updateTimer(`timer-${stepNum}`), 1000);
                 } catch (err) {
                     console.error('Error accessing microphone:', err);
@@ -121,82 +200,44 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        nextBtn.addEventListener('click', () => {
-            if (stepNum < 3) {
-                showStep(stepNum + 1);
-            } else {
-                document.getElementById('total-time').textContent = formatSeconds(totalAudioSeconds);
-                showStep(4);
-            }
-        });
-
-        // Add Analysis Button
-        const analyzeBtn = document.createElement('button');
-        analyzeBtn.className = 'btn';
-        analyzeBtn.style.marginTop = '1rem';
-        analyzeBtn.style.backgroundColor = '#f1f5f9';
-        analyzeBtn.style.color = 'var(--primary)';
-        analyzeBtn.style.border = '1px solid var(--primary)';
-        analyzeBtn.innerHTML = '🔬 View Research Report';
-        analyzeBtn.style.display = 'none';
-        
-        previewContainer.appendChild(analyzeBtn);
-
-        const statusDisplay = document.createElement('div');
-        statusDisplay.className = 'prompt-box';
-        statusDisplay.style.marginTop = '1rem';
-        statusDisplay.style.fontSize = '0.9rem';
-        statusDisplay.style.display = 'none';
-        previewContainer.appendChild(statusDisplay);
-
-        recordBtn.addEventListener('click', () => {
-            if (mediaRecorder && mediaRecorder.state === 'inactive') {
-                analyzeBtn.style.display = 'block';
-                statusDisplay.style.display = 'none';
-            }
-        });
-
-        analyzeBtn.addEventListener('click', async () => {
-            const audioBlob = stepAudios[stepNum].blob;
-            const formData = new FormData();
-            formData.append('file', audioBlob, 'recording.wav');
-            formData.append('participant_id', participantId || 'anonymous'); // Pass Participant ID to backend
-
-            analyzeBtn.disabled = true;
-            analyzeBtn.textContent = '⌛ Running Diagnostics...';
-            statusDisplay.style.display = 'block';
-            statusDisplay.textContent = 'Processing... saving to secure research directory...';
-
+        nextBtn.textContent = stepNum === 3 ? 'Save & Next' : 'Save & Next';
+        nextBtn.addEventListener('click', async () => {
+            nextBtn.disabled = true;
             try {
-                const response = await fetch('http://localhost:8000/analyze', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await response.json();
-                
-                if (data.report) {
-                    renderReport(data, participantId, stepNum);
-                    statusDisplay.style.display = 'none';
+                await saveStepAudio(stepNum, statusDisplay);
+                if (stepNum < 3) {
+                    showStep(stepNum + 1);
                 } else {
-                    statusDisplay.textContent = 'Analysis complete, but no report was generated.';
+                    document.getElementById('total-time').textContent = formatSeconds(totalAudioSeconds);
+                    showStep(4);
                 }
             } catch (err) {
-                console.error('Backend error:', err);
-                statusDisplay.textContent = '⚠️ Backend unreachable. Ensure server is running at port 8000.';
+                console.error(err);
+                setStatus(statusDisplay, err.message, 'error');
+                nextBtn.disabled = false;
+            }
+        });
+
+        reportBtn.addEventListener('click', async () => {
+            reportBtn.disabled = true;
+            try {
+                await saveStepAudio(stepNum, statusDisplay);
+                const data = await generateStepReport(stepNum, statusDisplay);
+                renderReport(data, sessionId, stepNum);
+            } catch (err) {
+                console.error(err);
+                setStatus(statusDisplay, err.message, 'error');
             } finally {
-                analyzeBtn.disabled = false;
-                analyzeBtn.innerHTML = '🔬 Re-run Analysis';
+                reportBtn.disabled = false;
             }
         });
     };
 
     const renderReport = (data, pId, stepNum) => {
-        // Show overlay
         reportOverlay.classList.add('active');
 
-        // Header
         document.getElementById('rep-id').textContent = pId;
-        document.getElementById('rep-file').textContent = 'audio_step' + stepNum + '_' + stepAudios[stepNum]?.duration + 's.wav';
+        document.getElementById('rep-file').textContent = `combined_upto_q${stepNum}.txt`;
         document.getElementById('rep-date').textContent = new Date().toLocaleDateString();
 
         const badge = document.getElementById('rep-status-badge');
@@ -206,44 +247,38 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (data.prediction === 'CONTROL') badge.classList.add('badge-control');
         else badge.classList.add('badge-uncertain');
 
-        const probPercent = Math.round(data.probability * 100);
-        document.getElementById('rep-prob-fill').style.width = probPercent + '%';
-        document.getElementById('rep-prob-text').textContent = probPercent + '%';
+        const probPercent = Math.round((data.probability || 0) * 100);
+        document.getElementById('rep-prob-fill').style.width = `${probPercent}%`;
+        document.getElementById('rep-prob-text').textContent = `${probPercent}%`;
 
-        // Biomarkers
         const grid = document.getElementById('biomarker-grid');
         grid.innerHTML = '';
-        
-        // Use biomarkers from backend
-        const keys = Object.keys(data.biomarkers).slice(0, 12);
-        keys.forEach(key => {
+        Object.keys(data.biomarkers || {}).slice(0, 12).forEach(key => {
             const val = data.biomarkers[key];
-            const card = document.createElement('div');
-            card.className = 'biomarker-card';
-            
-            const isTriggered = data.triggered.find(t => t.feature === key);
-            const flagHtml = isTriggered ? 
-                `<span class="bm-flag ${isTriggered.direction === 'high' ? 'flag-high' : 'flag-low'}">${isTriggered.direction === 'high' ? '↑ HIGH' : '↓ LOW'}</span>` : 
-                '';
+            const triggered = (data.triggered || []).find(t => t.feature === key);
+            const flagHtml = triggered
+                ? `<span class="bm-flag ${triggered.direction === 'high' ? 'flag-high' : 'flag-low'}">${triggered.direction.toUpperCase()}</span>`
+                : '';
 
             let fillWidth = Math.min(Math.max(val * 100, 5), 95);
             if (key.includes('entropy')) fillWidth = (val / 5) * 100;
             if (key.includes('std') || key.includes('count')) fillWidth = (val / 20) * 100;
 
+            const card = document.createElement('div');
+            card.className = 'biomarker-card';
             card.innerHTML = `
                 <div class="bm-name" title="${key}">${key.replace(/_/g, ' ')}</div>
                 <div class="bm-value-row">
-                    <div class="bm-value">${val.toFixed(3)}</div>
+                    <div class="bm-value">${Number(val).toFixed(3)}</div>
                     ${flagHtml}
                 </div>
                 <div class="bm-viz">
-                    <div class="bm-fill" style="width: ${fillWidth}%"></div>
+                    <div class="bm-fill" style="width: ${Math.min(fillWidth, 100)}%"></div>
                 </div>
             `;
             grid.appendChild(card);
         });
 
-        // Findings
         const list = document.getElementById('interpretation-list');
         list.innerHTML = '';
         if (data.triggered && data.triggered.length > 0) {
@@ -262,22 +297,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 list.appendChild(item);
             });
         } else {
-            list.innerHTML = `<div class="subtitle" style="text-align: left; margin: 0;">No significant clinical biomarkers flagged in this session.</div>`;
+            list.innerHTML = '<div class="subtitle" style="text-align: left; margin: 0;">No significant clinical biomarkers flagged in this session.</div>';
         }
 
-        // Impression
-        const reportParts = data.report.split('4. OVERALL IMPRESSION\n  ──────────────────────────────────────────\n');
-        let impression = "No summary available.";
-        if (reportParts.length > 1) {
-            impression = reportParts[1].split('────────────────────────────────────────────────────────────────────────')[0].replace(/  /g, '').trim();
-        }
-        document.getElementById('rep-impression').textContent = impression;
-    };
-
-    const formatSeconds = (totalSeconds) => {
-        const mins = Math.floor(totalSeconds / 60);
-        const secs = totalSeconds % 60;
-        return `${mins}m ${secs}s`;
+        const reportText = data.report || '';
+        const impressionMatch = reportText.match(/4\. OVERALL IMPRESSION[\s\S]*?\n\s*(.*?)(?:\n[-=]{6,}|\n\s*DISCLAIMER|$)/);
+        document.getElementById('rep-impression').textContent = impressionMatch
+            ? impressionMatch[1].replace(/\s+/g, ' ').trim()
+            : 'Report generated successfully from the cumulative transcript.';
     };
 
     [1, 2, 3].forEach(setupRecorder);
