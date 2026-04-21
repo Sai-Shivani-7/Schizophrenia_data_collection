@@ -2,3 +2,4 @@ token.pickle
 oauth_client.json
 *.pickle
 *.json
+backend/results
