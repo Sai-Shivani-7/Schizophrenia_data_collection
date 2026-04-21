@@ -200,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        nextBtn.textContent = stepNum === 3 ? 'Save & Next' : 'Save & Next';
+        nextBtn.textContent = stepNum === 3 ? 'Finish Session' : 'Save & Next';
         nextBtn.addEventListener('click', async () => {
             nextBtn.disabled = true;
             try {
@@ -209,6 +209,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     showStep(stepNum + 1);
                 } else {
                     document.getElementById('total-time').textContent = formatSeconds(totalAudioSeconds);
+                    // Clear any old status in step 4 if we start over (though we use reload)
+                    const finalStatus = document.getElementById('final-status');
+                    if (finalStatus) finalStatus.style.display = 'none';
                     showStep(4);
                 }
             } catch (err) {
@@ -308,4 +311,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     [1, 2, 3].forEach(setupRecorder);
+
+    // Step 4: Final Report Logic
+    const finalReportBtn = document.getElementById('final-report-btn');
+    const step4Section = document.getElementById('step-4');
+    
+    // Add a status display to Step 4
+    const finalStatusDisplay = document.createElement('div');
+    finalStatusDisplay.id = 'final-status';
+    finalStatusDisplay.className = 'prompt-box';
+    finalStatusDisplay.style.marginTop = '1rem';
+    finalStatusDisplay.style.fontSize = '0.9rem';
+    finalStatusDisplay.style.display = 'none';
+    step4Section.querySelector('.finish-card').insertBefore(finalStatusDisplay, finalReportBtn);
+
+    finalReportBtn.addEventListener('click', async () => {
+        console.log("DEBUG: Final Report Button Clicked");
+        finalReportBtn.disabled = true;
+        try {
+            const data = await generateStepReport(3, finalStatusDisplay);
+            console.log("DEBUG: Final Report Data Received", data);
+            renderReport(data, sessionId, 3);
+        } catch (err) {
+            console.error("DEBUG: Final Report Error", err);
+            setStatus(finalStatusDisplay, err.message, 'error');
+        } finally {
+            finalReportBtn.disabled = false;
+        }
+    });
 });

@@ -103,9 +103,15 @@
                     <h1>Thank You!</h1>
                     <p class="subtitle">Your data has been collected successfully.</p>
                     <p style="color: var(--text-muted); margin-bottom: 2rem;">Total audio collected: <span id="total-time">0:00</span></p>
-                    <button onclick="location.reload()" class="btn btn-primary">
-                        Return to Start
-                    </button>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 1rem; width: 100%;">
+                        <button id="final-report-btn" class="btn btn-primary">
+                            Generate Full Report
+                        </button>
+                        <button onclick="location.reload()" class="btn" style="background-color: #f1f5f9; color: var(--text-muted);">
+                            Return to Start
+                        </button>
+                    </div>
                 </div>
             </section>
         </div>

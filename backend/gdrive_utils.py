@@ -78,6 +78,11 @@ def upload_zip_to_drive(zip_path: str | Path, folder_name: Optional[str] = None)
     name = f"{folder_name}.zip" if folder_name else zip_path.name
 
     try:
+        # Check if file already exists in the folder
+        query = f"name = '{name}' and '{PARENT_FOLDER_ID}' in parents and trashed = false"
+        results = service.files().list(q=query, fields="files(id)").execute()
+        existing_files = results.get("files", [])
+
         media = MediaFileUpload(
             str(zip_path),
             mimetype="application/zip",
@@ -85,14 +90,23 @@ def upload_zip_to_drive(zip_path: str | Path, folder_name: Optional[str] = None)
             chunksize=1024 * 1024,
         )
 
-        print(f"---> UPLOADING: '{name}' to Google Drive folder ID: {PARENT_FOLDER_ID}")
-        
-        request = service.files().create(
-            body={"name": name, "parents": [PARENT_FOLDER_ID]},
-            media_body=media,
-            fields="id, webViewLink, parents",
-            supportsAllDrives=True,
-        )
+        if existing_files:
+            file_id = existing_files[0]["id"]
+            print(f"---> UPDATING EXISTING: '{name}' (ID: {file_id})")
+            request = service.files().update(
+                fileId=file_id,
+                media_body=media,
+                fields="id, webViewLink",
+                supportsAllDrives=True,
+            )
+        else:
+            print(f"---> UPLOADING NEW: '{name}' to folder ID: {PARENT_FOLDER_ID}")
+            request = service.files().create(
+                body={"name": name, "parents": [PARENT_FOLDER_ID]},
+                media_body=media,
+                fields="id, webViewLink",
+                supportsAllDrives=True,
+            )
 
         response = None
         while response is None:
