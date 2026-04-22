@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE = 'http://localhost:8000';
+    const API_BASE = 'https://your-backend-name.onrender.com' || 'http://localhost:8000' ;
 
     let currentStep = 0;
     let sessionId = '';
