@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE = window.location.origin.includes('localhost') ? 'http://localhost:8000' : window.location.origin;
+    const API_BASE = 'https://your-backend-name.onrender.com';
 
     let currentStep = -1; // -1 is Auth, 0 is Registration, 0.5 is Instructions, 1+ is recording
     let sessionId = '';
