@@ -378,5 +378,5 @@ def get_stt_model():
 
 def audio_to_text(audio_path):
     model = get_stt_model()
-    result = model.transcribe(audio_path)
-    return result["text"]
+    result = model.transcribe(audio_path, language="en")
+    return result["text"].strip()

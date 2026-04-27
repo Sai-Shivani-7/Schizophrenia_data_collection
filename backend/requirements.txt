@@ -14,3 +14,8 @@ seaborn
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
+pymongo
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==4.0.1
+google-auth

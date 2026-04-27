@@ -1,8 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE = 'http://localhost:8000';
+    const API_BASE = window.location.origin.includes('localhost') ? 'http://localhost:8000' : window.location.origin;
 
-    let currentStep = 0;
+    let currentStep = -1; // -1 is Auth, 0 is Registration, 0.5 is Instructions, 1+ is recording
     let sessionId = '';
+    let userRole = '';
+    let userName = '';
+    let accessToken = localStorage.getItem('access_token') || '';
+    
     let mediaRecorder;
     let audioChunks = [];
     let timerInterval;
@@ -16,9 +20,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const startBtn = document.getElementById('start-btn');
     const reportOverlay = document.getElementById('report-overlay');
     const closeReportBtn = document.getElementById('close-report');
+    const dashboardOverlay = document.getElementById('dashboard-overlay');
+    const closeDashboardBtn = document.getElementById('close-dashboard');
+    const navDashboardBtn = document.getElementById('nav-dashboard-btn');
+    const dashboardTbody = document.getElementById('dashboard-tbody');
+    const syncBtn = document.getElementById('sync-btn');
+    const transcriptPopup = document.getElementById('transcript-popup');
+    const closeTranscriptBtn = document.getElementById('close-transcript');
+    const copyTranscriptBtn = document.getElementById('copy-transcript');
+    const fullTranscriptContent = document.getElementById('full-transcript-content');
+    const transcriptMeta = document.getElementById('transcript-meta');
+
+    // Auth Elements
+    const authSection = document.getElementById('auth-section');
+    const loginForm = document.getElementById('login-form-container');
+    const signupForm = document.getElementById('signup-form-container');
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const loginBtn = document.getElementById('login-btn');
+    const signupBtn = document.getElementById('signup-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const navInstructionsBtn = document.getElementById('nav-instructions-btn');
+    const userDisplayName = document.getElementById('user-display-name');
+    const instructionsStep = document.getElementById('instructions-step');
+    const proceedBtn = document.getElementById('proceed-to-session-btn');
 
     const showStep = (stepIndex) => {
-        steps.forEach((s, idx) => s.classList.toggle('active', idx === stepIndex));
+        // Handle fractional steps or named steps
+        const stepMap = {
+            '-1': 'auth-section',
+            '0': 'step-0',
+            '0.5': 'instructions-step',
+            '1': 'step-1',
+            '2': 'step-2',
+            '3': 'step-3',
+            '4': 'step-4'
+        };
+        
+        steps.forEach(s => s.classList.remove('active'));
+        const targetId = stepMap[String(stepIndex)];
+        if (targetId) {
+            document.getElementById(targetId).classList.add('active');
+        }
         currentStep = stepIndex;
     };
 
@@ -46,14 +88,70 @@ document.addEventListener('DOMContentLoaded', () => {
     startBtn.addEventListener('click', () => {
         sessionId = participantInput.value.trim();
         if (!sessionId) {
-            sessionId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
-            participantInput.value = sessionId;
+            alert('Please enter a Participant ID to proceed.');
+            return;
         }
-        showStep(1);
+        showStep(0.5); // Go to Instructions
+    });
+
+    proceedBtn.addEventListener('click', () => {
+        if (!sessionId) {
+            alert('Please enter a Participant ID to proceed.');
+            showStep(0); // Redirect to PID entry
+        } else {
+            showStep(1); // Start Session
+        }
+    });
+
+    navInstructionsBtn.addEventListener('click', () => {
+        showStep(0.5);
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('access_token');
+        accessToken = '';
+        userRole = '';
+        location.reload();
     });
 
     closeReportBtn.addEventListener('click', () => {
         reportOverlay.classList.remove('active');
+    });
+
+    const dashboardLogoutBtn = document.getElementById('dashboard-logout-btn');
+    if (dashboardLogoutBtn) {
+        dashboardLogoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('access_token');
+            accessToken = '';
+            userRole = '';
+            location.reload();
+        });
+    }
+
+    closeDashboardBtn?.addEventListener('click', () => {
+        dashboardOverlay.classList.remove('active');
+    });
+
+    closeTranscriptBtn.addEventListener('click', () => {
+        transcriptPopup.classList.remove('active');
+    });
+
+    copyTranscriptBtn.addEventListener('click', () => {
+        const text = fullTranscriptContent.innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = copyTranscriptBtn.innerHTML;
+            copyTranscriptBtn.textContent = 'Copied!';
+            setTimeout(() => copyTranscriptBtn.innerHTML = originalText, 2000);
+        });
+    });
+
+    transcriptPopup.addEventListener('click', (e) => {
+        if (e.target === transcriptPopup) transcriptPopup.classList.remove('active');
+    });
+
+    navDashboardBtn.addEventListener('click', () => {
+        fetchTranscripts();
+        dashboardOverlay.classList.add('active');
     });
 
     const saveStepAudio = async (stepNum, statusDisplay) => {
@@ -74,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setStatus(statusDisplay, `Saving Q${stepNum} audio and transcript...`);
         const response = await fetch(`${API_BASE}/save-audio`, {
             method: 'POST',
+            headers: { 'Authorization': `Bearer ${accessToken}` },
             body: formData
         });
         const data = await response.json();
@@ -96,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setStatus(statusDisplay, `Generating report for Q${stepNum} from combined transcript...`);
         const response = await fetch(`${API_BASE}/generate-report`, {
             method: 'POST',
+            headers: { 'Authorization': `Bearer ${accessToken}` },
             body: formData
         });
         const data = await response.json();
@@ -125,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reportBtn.style.backgroundColor = '#f1f5f9';
         reportBtn.style.color = 'var(--primary)';
         reportBtn.style.border = '1px solid var(--primary)';
-        reportBtn.textContent = 'Generate Report';
+        reportBtn.textContent = "Model's result";
         reportBtn.disabled = true;
 
         const statusDisplay = document.createElement('div');
@@ -323,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
     finalStatusDisplay.style.marginTop = '1rem';
     finalStatusDisplay.style.fontSize = '0.9rem';
     finalStatusDisplay.style.display = 'none';
-    step4Section.querySelector('.finish-card').insertBefore(finalStatusDisplay, finalReportBtn);
+    finalReportBtn.parentNode.insertBefore(finalStatusDisplay, finalReportBtn);
 
     finalReportBtn.addEventListener('click', async () => {
         console.log("DEBUG: Final Report Button Clicked");
@@ -339,4 +439,311 @@ document.addEventListener('DOMContentLoaded', () => {
             finalReportBtn.disabled = false;
         }
     });
+
+    // --- Dashboard Logic ---
+
+    async function fetchTranscripts() {
+        dashboardTbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Loading transcripts...</td></tr>';
+        try {
+            const response = await fetch(`${API_BASE}/api/transcripts`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+        const transcripts = await response.json();
+        if (!response.ok) {
+            throw new Error(transcripts.detail || 'Failed to fetch transcripts');
+        }
+        if (Array.isArray(transcripts)) {
+            renderDashboard(transcripts);
+        } else {
+            console.error('Expected array of transcripts, got:', transcripts);
+            dashboardTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--danger);">Invalid data format from server.</td></tr>';
+        }
+    } catch (err) {
+        console.error('Failed to fetch transcripts:', err);
+        dashboardTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--danger);">Failed to load transcripts: ${err.message}</td></tr>`;
+    }
+    }
+
+    function renderDashboard(transcripts) {
+        if (transcripts.length === 0) {
+            dashboardTbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No transcripts found in database.</td></tr>';
+            return;
+        }
+
+        dashboardTbody.innerHTML = '';
+        transcripts.forEach(t => {
+            const tr = document.createElement('tr');
+            const date = new Date(t.created_at).toLocaleString();
+            const snippet = t.transcript.substring(0, 100) + (t.transcript.length > 100 ? '...' : '');
+            
+            tr.innerHTML = `
+                <td><strong>${t.session_id}</strong></td>
+                <td style="font-size: 0.85rem; color: var(--text-muted);">${date}</td>
+                <td><div class="transcript-snippet" data-id="${t._id}" title="Click to view full transcript">${snippet}</div></td>
+                <td>
+                    <label class="toggle-switch">
+                        <input type="checkbox" ${t.can_be_used ? 'checked' : ''} data-id="${t._id}" class="status-toggle-input">
+                        <span class="slider"></span>
+                    </label>
+                </td>
+                <td>
+                    <div class="action-btns" style="display: flex; gap: 8px;">
+                        <button class="btn btn-primary btn-small analyze-btn" data-id="${t._id}" title="Re-run Analysis">Model's result</button>
+                        <button class="btn btn-outline btn-small view-report-btn" data-id="${t._id}" style="border-color: var(--primary); color: var(--primary);">View Report</button>
+                    </div>
+                </td>
+            `;
+            dashboardTbody.appendChild(tr);
+        });
+
+        // Add event listeners for snippets
+        document.querySelectorAll('.transcript-snippet').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const tId = e.target.getAttribute('data-id');
+                const t = transcripts.find(item => item._id === tId);
+                if (t) {
+                    transcriptMeta.textContent = `Session: ${t.session_id} | Date: ${new Date(t.created_at).toLocaleString()}`;
+                    fullTranscriptContent.innerText = t.transcript; // innerText handles newlines and escapes correctly
+                    transcriptPopup.classList.add('active');
+                }
+            });
+        });
+
+        // Add event listeners for toggles
+        document.querySelectorAll('.status-toggle-input').forEach(input => {
+            input.addEventListener('change', async (e) => {
+                const tId = e.target.getAttribute('data-id');
+                const canBeUsed = e.target.checked;
+                try {
+                    const formData = new FormData();
+                    formData.append('can_be_used', canBeUsed);
+                    await fetch(`${API_BASE}/api/transcripts/${tId}/status`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${accessToken}` },
+                        body: formData
+                    });
+                } catch (err) {
+                    console.error('Failed to update status:', err);
+                    e.target.checked = !canBeUsed; // revert on failure
+                }
+            });
+        });
+
+        // Add event listeners for analyze buttons
+        document.querySelectorAll('.analyze-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const tId = e.target.getAttribute('data-id');
+                e.target.disabled = true;
+                e.target.textContent = 'Processing...';
+                try {
+                    const response = await fetch(`${API_BASE}/api/transcripts/${tId}/analyze`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.detail || 'Analysis failed');
+                    
+                    const transcript = transcripts.find(tr => tr._id === tId);
+                    renderReport(data, transcript.session_id, transcript.question_number);
+                } catch (err) {
+                    console.error('Analysis failed:', err);
+                    alert('Analysis failed: ' + err.message);
+                } finally {
+                    e.target.disabled = false;
+                    e.target.textContent = "Model's result";
+                }
+            });
+        });
+
+        // Add event listeners for view report buttons
+        document.querySelectorAll('.view-report-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const tId = e.target.getAttribute('data-id');
+                const t = transcripts.find(item => item._id === tId);
+                if (!t) return;
+
+                // Case 1: Results already exist and have the new detailed structure
+                if (t.prediction_result && t.prediction_result.report) {
+                    renderReport(t.prediction_result, t.session_id, t.question_number);
+                } 
+                // Case 2: Results are missing or old format - trigger analysis automatically
+                else {
+                    const originalText = e.target.textContent;
+                    e.target.disabled = true;
+                    e.target.textContent = 'Analyzing...';
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/api/transcripts/${tId}/analyze`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${accessToken}` }
+                        });
+                        const data = await response.json();
+                        if (!response.ok) throw new Error(data.detail || 'Analysis failed');
+                        
+                        // Update local data and render
+                        t.prediction_result = data;
+                        renderReport(data, t.session_id, t.question_number);
+                    } catch (err) {
+                        console.error('Auto-analysis failed:', err);
+                        alert('Could not generate report: ' + err.message);
+                    } finally {
+                        e.target.disabled = false;
+                        e.target.textContent = originalText;
+                    }
+                }
+            });
+        });
+    }
+
+    if (syncBtn) {
+        syncBtn.addEventListener('click', async () => {
+            syncBtn.disabled = true;
+            const originalText = syncBtn.innerHTML;
+            syncBtn.textContent = 'Syncing...';
+            try {
+                const response = await fetch(`${API_BASE}/api/sync-results`, { 
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Sync failed on server');
+                alert(`Successfully synced ${data.synced} results!`);
+                fetchTranscripts();
+            } catch (err) {
+                console.error('Sync failed:', err);
+                alert('Sync failed: ' + err.message);
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.innerHTML = originalText;
+            }
+        });
+    }
+
+    // --- Authentication Logic ---
+
+    authTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            authTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const target = tab.getAttribute('data-tab');
+            if (target === 'login') {
+                loginForm.style.display = 'block';
+                signupForm.style.display = 'none';
+            } else {
+                loginForm.style.display = 'none';
+                signupForm.style.display = 'block';
+            }
+        });
+    });
+
+    const handleLoginResponse = (data) => {
+        accessToken = data.access_token;
+        userRole = data.role;
+        userName = data.name;
+        localStorage.setItem('access_token', accessToken);
+        
+        userDisplayName.textContent = userName;
+        updateUIForRole();
+        
+        if (userRole === 'admin') {
+            fetchTranscripts();
+            dashboardOverlay.classList.add('active');
+        } else {
+            showStep(0); // Participant ID entry
+        }
+    };
+
+    loginBtn.addEventListener('click', async () => {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        
+        if (!email || !password) return alert('Please fill in all fields');
+        
+        const formData = new FormData();
+        formData.append('email', email);
+        formData.append('password', password);
+        
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/login`, { method: 'POST', body: formData });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Login failed');
+            handleLoginResponse(data);
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    signupBtn.addEventListener('click', async () => {
+        const name = document.getElementById('signup-name').value;
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        
+        if (!name || !email || !password) return alert('Please fill in all fields');
+        
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('email', email);
+        formData.append('password', password);
+        
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/signup`, { method: 'POST', body: formData });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Signup failed');
+            alert('Account created! Please login.');
+            authTabs[0].click(); // Switch to login
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    window.handleGoogleLogin = async (response) => {
+        const formData = new FormData();
+        formData.append('credential', response.credential);
+        
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/google`, { method: 'POST', body: formData });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Google Login failed');
+            handleLoginResponse(data);
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
+    function updateUIForRole() {
+        logoutBtn.style.display = 'block';
+        if (userRole === 'admin') {
+            navDashboardBtn.style.display = 'block';
+            navInstructionsBtn.style.display = 'none';
+        } else {
+            navDashboardBtn.style.display = 'none';
+            navInstructionsBtn.style.display = 'block';
+        }
+    }
+
+    // Auto-login if token exists
+    if (accessToken) {
+        // We could verify the token here, but for now we'll just parse the role
+        try {
+            const payload = JSON.parse(atob(accessToken.split('.')[1]));
+            userRole = payload.role;
+            // Since we don't have the name in the token payload in this simple implementation, 
+            // we'll just set it to 'User' or fetch it if needed.
+            userDisplayName.textContent = 'User'; 
+            updateUIForRole();
+            if (userRole === 'admin') {
+                showStep(0); // Admin can still use the collector
+            } else {
+                showStep(0);
+            }
+        } catch (e) {
+            localStorage.removeItem('access_token');
+            showStep(-1);
+        }
+    } else {
+        showStep(-1);
+    }
 });
